@@ -48,6 +48,15 @@ This adds:
 
 ### 2. Install Dependencies
 
+Install dependencies for the newly imported MuJoCo packages:
+
+```bash
+cd ~/ws_aic
+rosdep install --from-paths src/gazebo/gz-mujoco src/mujoco --ignore-src -r -y
+```
+
+Or install all workspace dependencies:
+
 ```bash
 cd ~/ws_aic
 rosdep install --from-paths src --ignore-src -r -y
@@ -55,37 +64,60 @@ rosdep install --from-paths src --ignore-src -r -y
 
 ### 3. Build the Workspace
 
-The `mujoco_vendor` package requires the `MUJOCO_DIR` environment variable during build:
+With the package dependencies properly configured, building should work automatically:
 
 ```bash
 source /opt/ros/kilted/setup.bash
 
-# Build mujoco_vendor first to install MuJoCo
-colcon build --packages-select mujoco_vendor
-
-# Source to get MUJOCO_DIR in environment
-source install/setup.bash
-
-# Build mujoco_ros2_control and other packages
+# Build all packages
 colcon build
 
-# Source the complete workspace
+# Source the workspace
 source install/setup.bash
 ```
+
+The build order is automatically handled by `colcon` through package dependencies:
+1. `mujoco_vendor` builds first and exports `MUJOCO_DIR` via environment hooks
+2. `mujoco_ros2_control` and `gz-mujoco` build next, finding MuJoCo automatically
+3. Other packages build as needed
+
+> **Note:** The forked repositories include fixes to ensure `mujoco_vendor` exports `MUJOCO_DIR` and `mujoco_ros2_control` properly depends on `mujoco_vendor`.
 
 ### 4. Verify Installation
 
 ```bash
-# Check MuJoCo installation
+# Source the workspace (if not already done)
+source ~/ws_aic/install/setup.bash
+
+# Check MUJOCO_DIR is automatically set by the environment hook
 echo $MUJOCO_DIR
 # Should output something like:
-# /home/user/ws_aic/install/mujoco_vendor/share/mujoco_vendor/mujoco-3.x.x
+# /home/user/ws_aic/install/opt/mujoco_vendor
+
+# Check MuJoCo installation directory
+ls $MUJOCO_DIR
+# Should show: bin, include, lib, simulate directories
 
 # Check sdformat_mjcf tool
 which sdformat_mjcf
 # Should output:
 # /home/user/ws_aic/install/gz-mujoco/bin/sdformat_mjcf
+
+# Verify MuJoCo simulate binary works
+which simulate
+# Should output:
+# /home/user/ws_aic/install/opt/mujoco_vendor/bin/simulate
 ```
+
+> **⚠️ Important:** If you have a previous MuJoCo installation, it may conflict with `mujoco_vendor`. Check for and remove any existing `MUJOCO_PATH` or `MUJOCO_DIR` environment variables from your shell configuration (`~/.bashrc`, etc.) before building. After cleaning the environment, rebuild the workspace:
+> ```bash
+> # Check for conflicting environment variables
+> env | grep MUJOCO
+>
+> # If you see MUJOCO_PATH or incorrect MUJOCO_DIR, remove from ~/.bashrc and restart shell
+> # Then rebuild
+> colcon build --packages-select mujoco_vendor mujoco_ros2_control gz-mujoco
+> ```
 
 ## Usage
 
