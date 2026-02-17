@@ -31,7 +31,7 @@ In each trial, the robot spawns at a pre-specified (not random) pose, and the ca
 
 ### Trial 1 and 2: Policy validity and convergence
 
-![TRIAL 1](../../media/aic_board_trial_1_sfp.png)
+![TRIAL 1](../_static/assets/challenge/aic_board_trial_1_sfp.png)
 
 * **Objective:** Verify policy convergence and the ability to handle randomized NIC poses. The only difference between these two trials is the randomness in 1) the pose of the task board, 2) which `NIC_RAIL` the `NIC_CARD` gets spawned on, and 3) the translation and orientation offset of the `NIC_CARD` on that `NIC_RAIL`.
 
@@ -45,7 +45,7 @@ In each trial, the robot spawns at a pre-specified (not random) pose, and the ca
 
 ### Trial 3: Generalization (SC)
 
-![TRIAL 3](../../media/aic_board_trial_3_sc.png)
+![TRIAL 3](../_static/assets/challenge/aic_board_trial_3_sc.png)
 
 * **Objective:** Verify the policy's ability to generalize across different plug and port types.
 

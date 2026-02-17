@@ -4,7 +4,7 @@
 
 During qualification, participants use their preferred tools—including open source software and simulators—alongside the Intrinsic challenge toolkit to train a model for the cable insertion task. All submitted models are evaluated using Gazebo.
 
-![](../../media/qualification_overview.png)
+![](../_static/assets/challenge/qualification_overview.png)
 
 ### Technical Overview
 
