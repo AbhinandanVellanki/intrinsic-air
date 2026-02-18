@@ -18,7 +18,7 @@
 from aic_model.policy import (
     Policy,
     GetObservationCallback,
-    SetPoseTargetCallback,
+    MoveRobotCallback,
     SendFeedbackCallback,
 )
 from aic_model_interfaces.msg import Observation
@@ -36,7 +36,7 @@ class WaveArm(Policy):
         self,
         task: Task,
         get_observation: GetObservationCallback,
-        set_pose_target: SetPoseTargetCallback,
+        move_robot: MoveRobotCallback,
         send_feedback: SendFeedbackCallback,
     ):
         self.get_logger().info(f"WaveArm.insert_cable() enter. Task: {task}")

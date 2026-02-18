@@ -110,7 +110,8 @@ class AicModel(LifecycleNode):
         self.joint_motion_update_pub = self.create_lifecycle_publisher(
             JointMotionUpdate, "/aic_controller/joint_commands", 2
         )
-        self.change_target_mode_client = self.create_client(
+        self._target_mode = TargetMode.MODE_CARTESIAN
+        self._change_target_mode_client = self.create_client(
             ChangeTargetMode, "/aic_controller/change_target_mode"
         )
 
@@ -186,11 +187,48 @@ class AicModel(LifecycleNode):
     def observation_callable(self):
         return self._observation_msg
 
-    def move_robot(self, motion_update: None, joint_motion_update: None):
-        """Set a motion target for the robot."""
-        motion_update_msg = MotionUpdate()
-        motion_update.pose = pose
-        motion_update.header.frame_id = "base_link"
+    async def handle_motion_update(self, motion_update: MotionUpdate):
+        cartesian_mode = TargetMode.MODE_CARTESIAN
+        if self._target_mode != cartesian:
+            self.get_logger().info("Setting cartesian mode...")
+            await self.set_target_mode(cartesian)
+            self._target_mode = cartesian
+        self.motion_update_pub.publish(motion_update)
+        return True
+
+    async def handle_joint_motion_update(self, joint_motion_update: JointMotionUpdate):
+        joint_mode = TargetMode.MODE_JOINT
+        if self._target_mode != joint_mode:
+            self.get_logger().info("Setting joint mode...")
+            await self.set_target_mode(joint_mode)
+            self._target_mode = joint_mode
+        self.joint_motion_update_pub.publish(joint_motion_update)
+        return True
+
+    async def move_robot(
+        self,
+        motion_update: MotionUpdate = None,
+        joint_motion_update: JointMotionUpdate = None,
+    ) -> bool:
+        """Set a motion target for the robot.
+
+        There are two ways to move the robot: via a cartesian commands or via
+        joint-space commands. Within each of those spaces, it is possible to
+        provide either position targets or velocity targets.
+        """
+        if motion_update is not None and joint_motion_update is not None:
+            self.get_logger().error(
+                "motion_update and joint_motion_update cannot both be provided simultaneously to move_robot()."
+            )
+            return False
+
+        if motion_update is not None:
+            return self.handle_motion_update(motion_update)
+        elif joint_motion_update is not None:
+            return self.handle_joint_motion_update(joint_motion_update)
+        else:
+            self.get_logger().error("Either motion_update or joint_motion_update must be provided.")
+            return False
 
     def set_pose_target(self, pose: Pose, frame_id: str = "base_link"):
         """Set a pose target for the robot arm.
@@ -255,7 +293,7 @@ class AicModel(LifecycleNode):
 
     async def insert_cable_execute_callback(self, goal_handle: ServerGoalHandle):
         self.get_logger().info("Entering insert_cable_execute_callback()")
-        self.set_cartesian_mode()
+        self.set_target_mode(TargetMode.MODE_CARTESIAN)
         self._action_thread_result = None
         self._action_thread = threading.Thread(
             target=self.action_thread_func,
@@ -318,6 +356,7 @@ class AicModel(LifecycleNode):
         self.get_logger().info("Exiting insert_cable execute loop")
 
     def set_target_mode(self, target_mode):
+        self._target_mode = target_mode
         target_mode_request = ChangeTargetMode.Request()
         target_mode_request.target_mode.mode = target_mode
         response = self.change_target_mode_client.call(target_mode_request)
@@ -325,12 +364,6 @@ class AicModel(LifecycleNode):
             self.get_logger().error("Unable to set target mode")
         else:
             self.get_logger().info("Successfully set target mode")
-
-    def set_joint_mode(self):
-        self.set_target_mode(TargetMode.MODE_JOINT)
-
-    def set_cartesian_mode(self):
-        self.set_target_mode(TargetMode.MODE_CARTESIAN)
 
 
 def main(args=None):
