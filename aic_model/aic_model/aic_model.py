@@ -225,7 +225,9 @@ class AicModel(LifecycleNode):
         elif joint_motion_update is not None:
             return self.handle_joint_motion_update(joint_motion_update)
         else:
-            self.get_logger().error("Either motion_update or joint_motion_update must be provided.")
+            self.get_logger().error(
+                "Either motion_update or joint_motion_update must be provided."
+            )
             return False
 
     def set_pose_target(self, pose: Pose, frame_id: str = "base_link"):
