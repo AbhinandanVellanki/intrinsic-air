@@ -187,25 +187,23 @@ class AicModel(LifecycleNode):
     def observation_callable(self):
         return self._observation_msg
 
-    async def handle_motion_update(self, motion_update: MotionUpdate):
-        cartesian_mode = TargetMode.MODE_CARTESIAN
-        if self._target_mode != cartesian:
+    def handle_motion_update(self, motion_update: MotionUpdate):
+        if self._target_mode != TargetMode.MODE_CARTESIAN:
             self.get_logger().info("Setting cartesian mode...")
-            await self.set_target_mode(cartesian)
-            self._target_mode = cartesian
+            self.set_target_mode(TargetMode.MODE_CARTESIAN)
+            self._target_mode = TargetMode.MODE_CARTESIAN
         self.motion_update_pub.publish(motion_update)
         return True
 
-    async def handle_joint_motion_update(self, joint_motion_update: JointMotionUpdate):
-        joint_mode = TargetMode.MODE_JOINT
-        if self._target_mode != joint_mode:
+    def handle_joint_motion_update(self, joint_motion_update: JointMotionUpdate):
+        if self._target_mode != TargetMode.MODE_JOINT:
             self.get_logger().info("Setting joint mode...")
-            await self.set_target_mode(joint_mode)
-            self._target_mode = joint_mode
+            self.set_target_mode(TargetMode.MODE_JOINT)
+            self._target_mode = TargetMode.MODE_JOINT
         self.joint_motion_update_pub.publish(joint_motion_update)
         return True
 
-    async def move_robot(
+    def move_robot(
         self,
         motion_update: MotionUpdate = None,
         joint_motion_update: JointMotionUpdate = None,

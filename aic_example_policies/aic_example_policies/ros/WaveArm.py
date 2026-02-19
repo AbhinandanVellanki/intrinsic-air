@@ -15,16 +15,24 @@
 #
 
 
+import numpy as np
+
+
 from aic_model.policy import (
     Policy,
     GetObservationCallback,
     MoveRobotCallback,
     SendFeedbackCallback,
 )
+from aic_control_interfaces.msg import (
+    MotionUpdate,
+    TrajectoryGenerationMode,
+)
 from aic_model_interfaces.msg import Observation
 from aic_task_interfaces.msg import Task
-from geometry_msgs.msg import Point, Pose, Quaternion
+from geometry_msgs.msg import Point, Pose, Quaternion, Vector3, Wrench
 from rclpy.duration import Duration
+from std_msgs.msg import Header
 
 
 class WaveArm(Policy):
@@ -61,12 +69,38 @@ class WaveArm(Policy):
             y_scale -= 1.0
 
             # create a smooth series of target points that flies over the task board
-            set_pose_target(
-                Pose(
-                    position=Point(x=-0.4, y=0.45 + 0.3 * y_scale, z=0.25),
-                    orientation=Quaternion(x=1.0, y=0.0, z=0.0, w=0.0),
+            try:
+                move_robot(
+                    MotionUpdate(
+                        header=Header(
+                            frame_id="base_link",
+                            stamp=self._parent_node.get_clock().now().to_msg(),
+                        ),
+                        pose=Pose(
+                            position=Point(x=-0.4, y=0.45 + 0.3 * y_scale, z=0.25),
+                            orientation=Quaternion(x=1.0, y=0.0, z=0.0, w=0.0),
+                        ),
+                        target_stiffness=np.diag(
+                            [90.0, 90.0, 90.0, 50.0, 50.0, 50.0]
+                        ).flatten(),
+                        target_damping=np.diag(
+                            [50.0, 50.0, 50.0, 20.0, 20.0, 20.0]
+                        ).flatten(),
+                        feedforward_wrench_at_tip=Wrench(
+                            force=Vector3(x=0.0, y=0.0, z=0.0),
+                            torque=Vector3(x=0.0, y=0.0, z=0.0),
+                        ),
+                        wrench_feedback_gains_at_tip=Wrench(
+                            force=Vector3(x=0.5, y=0.5, z=0.5),
+                            torque=Vector3(x=0.0, y=0.0, z=0.0),
+                        ),
+                        trajectory_generation_mode=TrajectoryGenerationMode(
+                            mode=TrajectoryGenerationMode.MODE_POSITION,
+                        ),
+                    )
                 )
-            )
+            except Exception as ex:
+                self.get_logger().info(f"move_robot exception: {ex}")
 
         self.get_logger().info("WaveArm.insert_cable() exiting...")
         return True
