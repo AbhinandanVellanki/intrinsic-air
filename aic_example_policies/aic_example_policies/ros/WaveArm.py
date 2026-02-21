@@ -32,7 +32,6 @@ from aic_model_interfaces.msg import Observation
 from aic_task_interfaces.msg import Task
 from geometry_msgs.msg import Point, Pose, Quaternion, Vector3, Wrench
 from rclpy.duration import Duration
-from std_msgs.msg import Header
 
 
 class WaveArm(Policy):
@@ -61,43 +60,19 @@ class WaveArm(Policy):
             self.get_logger().info(f"observation time: {t}")
 
             # Move the arm along a line, while looking down at the task board.
-            loop_duration = 5.0  # seconds
-            loop_fraction = (t % loop_duration) / loop_duration
+            loop_seconds = 5.0  # seconds
+            loop_fraction = (t % loop_seconds) / loop_seconds
             y_scale = 2 * loop_fraction
             if y_scale > 1.0:
                 y_scale = 2.0 - y_scale
-            y_scale -= 1.0
+            y_scale -= 1.0  # y_scale will move linearly between [-1..1] and back
 
-            # create a smooth series of target points that flies over the task board
-            try:
-                move_robot(
-                    MotionUpdate(
-                        header=Header(
-                            frame_id="base_link",
-                            stamp=self._parent_node.get_clock().now().to_msg(),
-                        ),
-                        pose=Pose(
-                            position=Point(x=-0.4, y=0.45 + 0.3 * y_scale, z=0.25),
-                            orientation=Quaternion(x=1.0, y=0.0, z=0.0, w=0.0),
-                        ),
-                        target_stiffness=np.diag(
-                            [90.0, 90.0, 90.0, 50.0, 50.0, 50.0]
-                        ).flatten(),
-                        target_damping=np.diag(
-                            [50.0, 50.0, 50.0, 20.0, 20.0, 20.0]
-                        ).flatten(),
-                        feedforward_wrench_at_tip=Wrench(
-                            force=Vector3(x=0.0, y=0.0, z=0.0),
-                            torque=Vector3(x=0.0, y=0.0, z=0.0),
-                        ),
-                        wrench_feedback_gains_at_tip=[0.5, 0.5, 0.5, 0.0, 0.0, 0.0],
-                        trajectory_generation_mode=TrajectoryGenerationMode(
-                            mode=TrajectoryGenerationMode.MODE_POSITION,
-                        ),
-                    )
+            # move to a series of target poses over the task board
+            self.move_to_pose(move_robot, Pose(
+                    position=Point(x=-0.4, y=0.45 + 0.3 * y_scale, z=0.25),
+                    orientation=Quaternion(x=1.0, y=0.0, z=0.0, w=0.0),
                 )
-            except Exception as ex:
-                self.get_logger().info(f"move_robot exception: {ex}")
+            )
 
         self.get_logger().info("WaveArm.insert_cable() exiting...")
         return True
