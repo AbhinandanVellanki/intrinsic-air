@@ -110,7 +110,7 @@ class AicModel(LifecycleNode):
         self.joint_motion_update_pub = self.create_lifecycle_publisher(
             JointMotionUpdate, "/aic_controller/joint_commands", 2
         )
-        self._target_mode = TargetMode.MODE_CARTESIAN
+        self._target_mode = TargetMode.MODE_UNSPECIFIED
         self._change_target_mode_client = self.create_client(
             ChangeTargetMode, "/aic_controller/change_target_mode"
         )
@@ -248,7 +248,6 @@ class AicModel(LifecycleNode):
 
     async def insert_cable_execute_callback(self, goal_handle: ServerGoalHandle):
         self.get_logger().info("Entering insert_cable_execute_callback()")
-        self.set_target_mode(TargetMode.MODE_CARTESIAN)
         self._action_thread_result = None
         self._action_thread = threading.Thread(
             target=self.action_thread_func,
@@ -311,13 +310,13 @@ class AicModel(LifecycleNode):
         self.get_logger().info("Exiting insert_cable execute loop")
 
     def set_target_mode(self, target_mode):
-        self._target_mode = target_mode
         target_mode_request = ChangeTargetMode.Request()
         target_mode_request.target_mode.mode = target_mode
         response = self._change_target_mode_client.call(target_mode_request)
         if not response.success:
             self.get_logger().error("Unable to set target mode")
         else:
+            self._target_mode = target_mode
             self.get_logger().info("Successfully set target mode")
 
 

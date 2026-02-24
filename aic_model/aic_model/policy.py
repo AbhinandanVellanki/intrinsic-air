@@ -87,7 +87,7 @@ class Policy(ABC):
         """Sleep for the given duration using the node's clock (sim-time aware)."""
         self.get_clock().sleep_for(Duration(seconds=duration_sec))
 
-    def set_pose_target(self, move_robot: MoveRobotCallback, pose: Pose):
+    def set_pose_target(self, move_robot: MoveRobotCallback, pose: Pose, frame_id: str = "base_link") -> None:
         """Invoke the move_robot callback to request the supplied Pose.
 
         This is a convenience function which populates a MotionUpdate message
@@ -111,7 +111,7 @@ class Policy(ABC):
         """
         motion_update = MotionUpdate(
             header=Header(
-                frame_id="base_link",
+                frame_id=frame_id,
                 stamp=self._parent_node.get_clock().now().to_msg(),
             ),
             pose=pose,
