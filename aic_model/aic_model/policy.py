@@ -133,6 +133,27 @@ class Policy(ABC):
         except Exception as ex:
             self.get_logger().info(f"move_robot exception: {ex}")
 
+    def set_joint_target(
+            self, move_robot: MoveRobotCallback, joint_positions: list[float],
+            trajectory_generation_mode: TrajectoryGenerationMode = TrajectoryGenerationMode(
+                mode=TrajectoryGenerationMode.MODE_POSITION,
+            ),
+            target_stiffness: list[float] = [50.0, 50.0, 50.0, 20.0, 20.0, 20.0],
+            target_damping: list[float] = [40.0, 40.0, 40.0, 20.0, 20.0, 20.0],
+            target_feedforward_torque: list[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) -> None:
+
+        joint_motion_update = JointMotionUpdate()
+        joint_motion_update.target_state.positions = joint_positions
+        joint_motion_update.target_stiffness = target_stiffness
+        joint_motion_update.target_damping = target_damping
+        joint_motion_update.target_feedforward_torque = target_feedforward_torque
+        joint_motion_update.trajectory_generation_mode = trajectory_generation_mode
+
+        try:
+            move_robot(joint_motion_update=joint_motion_update)
+        except Exception as ex:
+            self.get_logger().info(f"move_robot exception: {ex}")
+
     @abstractmethod
     def insert_cable(
         self,
