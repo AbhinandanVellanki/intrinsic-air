@@ -49,7 +49,7 @@ class SpeedDemon(Policy):
 
         # High stiffness + low damping = fast, jerky motion (high jerk)
         joint_motion_update = JointMotionUpdate(
-            target_stiffness=[500.0, 500.0, 500.0, 200.0, 200.0, 200.0], 
+            target_stiffness=[500.0, 500.0, 500.0, 200.0, 200.0, 200.0],
             target_damping=[5.0, 5.0, 5.0, 2.0, 2.0, 2.0],
             trajectory_generation_mode=TrajectoryGenerationMode(
                 mode=TrajectoryGenerationMode.MODE_POSITION
