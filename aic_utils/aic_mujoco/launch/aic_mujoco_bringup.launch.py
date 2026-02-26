@@ -285,14 +285,10 @@ def launch_setup(context, *args, **kwargs):
 
     # Set MuJoCo environment variables for the entire launch file
     set_mujoco_plugin_path = SetEnvironmentVariable(
-        name="MUJOCO_PLUGIN_PATH",
-        value=mujoco_plugin_path
+        name="MUJOCO_PLUGIN_PATH", value=mujoco_plugin_path
     )
 
-    set_mujoco_dir = SetEnvironmentVariable(
-        name="MUJOCO_DIR",
-        value=mujoco_dir
-    )
+    set_mujoco_dir = SetEnvironmentVariable(name="MUJOCO_DIR", value=mujoco_dir)
 
     nodes_to_start = [
         set_mujoco_plugin_path,
