@@ -36,8 +36,12 @@ services:
       - "8000:8000"
     volumes:
       - ../docs/sphinx:/src/docs
+    networks:
+      - docs_net
     command: sphinx-autobuild docs docs/_build/html --host 0.0.0.0 --port 8000
 
 networks:
   default:
     internal: true
+  docs_net:
+    driver: bridge
