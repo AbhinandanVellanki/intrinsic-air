@@ -8,9 +8,9 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 
-# Install launch files, MJCF models, and config
+# Install launch files and MJCF models
 install(DIRECTORY
-  launch mjcf config
+  launch mjcf
   DESTINATION share/${PROJECT_NAME}/
 )
 

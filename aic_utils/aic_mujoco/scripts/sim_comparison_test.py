@@ -53,21 +53,60 @@ JOINT_NAMES = [
 # Initial configuration (from aic_ros2_controllers.yaml nullspace target)
 INITIAL_CONFIG = [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]
 
-# Test configurations: a sequence of target joint positions to command
-# These are chosen to exercise different joints at different amplitudes
+# Test configurations: a sequence of (label, target_positions) tuples.
+# Each config exercises a different type of motion to characterize
+# single-joint and multi-joint (Cartesian-like) dynamics.
 TEST_CONFIGS = [
-    # Config 1: Move shoulder pan +0.3 rad
-    [-0.1597 + 0.3, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110],
-    # Config 2: Return to initial
-    [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110],
-    # Config 3: Move shoulder lift +0.2 rad
-    [-0.1597, -1.3542 + 0.2, -1.6648, -1.6933, 1.5710, 1.4110],
-    # Config 4: Move elbow -0.3 rad
-    [-0.1597, -1.3542, -1.6648 - 0.3, -1.6933, 1.5710, 1.4110],
-    # Config 5: Move wrist joints
-    [-0.1597, -1.3542, -1.6648, -1.6933 + 0.4, 1.5710 - 0.3, 1.4110 + 0.5],
-    # Config 6: Return to initial
-    [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110],
+    # --- Phase 1: Single-joint isolation ---
+    ("shoulder_pan +0.3", [-0.1597 + 0.3, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]),
+    ("return to initial", [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]),
+    ("shoulder_lift +0.2", [-0.1597, -1.3542 + 0.2, -1.6648, -1.6933, 1.5710, 1.4110]),
+    ("elbow -0.3", [-0.1597, -1.3542, -1.6648 - 0.3, -1.6933, 1.5710, 1.4110]),
+    (
+        "wrist multi-move",
+        [-0.1597, -1.3542, -1.6648, -1.6933 + 0.4, 1.5710 - 0.3, 1.4110 + 0.5],
+    ),
+    ("return to initial", [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]),
+    # --- Phase 2: Coordinated multi-joint (Cartesian-like) ---
+    # EE up: shoulder_lift straightens, elbow compensates, wrist_1 keeps orientation
+    (
+        "EE up (coordinated)",
+        [-0.1597, -1.3542 + 0.25, -1.6648 + 0.20, -1.6933 - 0.20, 1.5710, 1.4110],
+    ),
+    # EE down: opposite direction
+    (
+        "EE down (coordinated)",
+        [-0.1597, -1.3542 - 0.15, -1.6648 - 0.20, -1.6933 + 0.15, 1.5710, 1.4110],
+    ),
+    ("return to initial", [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]),
+    # --- Phase 3: Large amplitude coordinated motion ---
+    # All joints shift simultaneously — stresses coupled dynamics
+    (
+        "large coordinated move",
+        [
+            -0.1597 + 0.2,
+            -1.3542 + 0.3,
+            -1.6648 - 0.25,
+            -1.6933 + 0.3,
+            1.5710 - 0.2,
+            1.4110 + 0.3,
+        ],
+    ),
+    ("return to initial", [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]),
+    # --- Phase 4: Rapid back-and-forth (tests dynamic damping response) ---
+    (
+        "rapid EE up",
+        [-0.1597, -1.3542 + 0.15, -1.6648 + 0.12, -1.6933 - 0.12, 1.5710, 1.4110],
+    ),
+    (
+        "rapid EE down",
+        [-0.1597, -1.3542 - 0.10, -1.6648 - 0.12, -1.6933 + 0.10, 1.5710, 1.4110],
+    ),
+    (
+        "rapid EE up (2)",
+        [-0.1597, -1.3542 + 0.15, -1.6648 + 0.12, -1.6933 - 0.12, 1.5710, 1.4110],
+    ),
+    ("return to initial", [-0.1597, -1.3542, -1.6648, -1.6933, 1.5710, 1.4110]),
 ]
 
 # Joint impedance gains for the test (matching aic_ros2_controllers.yaml defaults)
@@ -222,9 +261,9 @@ class SimComparisonNode(Node):
         self.get_logger().info("Recording started")
 
         # Send each test configuration and wait
-        for i, config in enumerate(TEST_CONFIGS):
+        for i, (label, config) in enumerate(TEST_CONFIGS):
             self.get_logger().info(
-                f"Step {i+1}/{len(TEST_CONFIGS)}: Commanding {[f'{v:.3f}' for v in config]}"
+                f"Step {i+1}/{len(TEST_CONFIGS)} [{label}]: Commanding {[f'{v:.3f}' for v in config]}"
             )
             # Send command at high rate for the duration
             step_start = time.time()
@@ -364,10 +403,19 @@ def compare_trajectories(file1: str, file2: str):
     # Per-step analysis (identify which movements cause largest divergence)
     step_duration = 3.0  # seconds per step
     print("Per-step breakdown (which movements diverge most):")
-    print(f"{'Step':<8} {'Time Window':<20} {'Pos RMSE (all joints)':<25}")
-    print("-" * 55)
+    print(f"{'Step':<8} {'Label':<28} {'Time Window':<16} {'Pos RMSE':<15}")
+    print("-" * 70)
 
-    for step_idx in range(len(TEST_CONFIGS)):
+    # Group steps into phases for summary
+    phase_rmses = {"single_joint": [], "coordinated": [], "large": [], "rapid": []}
+    phase_names = {
+        "single_joint": "Phase 1: Single-joint isolation",
+        "coordinated": "Phase 2: Coordinated (Cartesian-like)",
+        "large": "Phase 3: Large amplitude",
+        "rapid": "Phase 4: Rapid back-and-forth",
+    }
+
+    for step_idx, (label, _config) in enumerate(TEST_CONFIGS):
         step_start_t = t_start + step_idx * step_duration
         step_end_t = step_start_t + step_duration
         mask = (t_common >= step_start_t) & (t_common < step_end_t)
@@ -381,9 +429,68 @@ def compare_trajectories(file1: str, file2: str):
             step_rmse += np.mean((pos1 - pos2) ** 2)
         step_rmse = np.sqrt(step_rmse / len(JOINT_NAMES))
 
+        # Categorize into phase
+        if step_idx < 6:
+            phase_rmses["single_joint"].append(step_rmse)
+        elif step_idx < 9:
+            phase_rmses["coordinated"].append(step_rmse)
+        elif step_idx < 11:
+            phase_rmses["large"].append(step_rmse)
+        else:
+            phase_rmses["rapid"].append(step_rmse)
+
         print(
-            f"{step_idx+1:<8} {f'{step_start_t:.1f}s-{step_end_t:.1f}s':<20} {step_rmse:<25.6f}"
+            f"{step_idx+1:<8} {label:<28} "
+            f"{f'{step_start_t:.1f}s-{step_end_t:.1f}s':<16} {step_rmse:<15.6f}"
         )
+
+    # Print phase summaries
+    print(f"\n{'Phase Summary':}")
+    print(f"{'Phase':<45} {'Mean RMSE':<15}")
+    print("-" * 60)
+    for key, name in phase_names.items():
+        if phase_rmses[key]:
+            mean_rmse = np.mean(phase_rmses[key])
+            print(f"{name:<45} {mean_rmse:<15.6f}")
+
+    # Signed error analysis per step (ref - test, positive = test UNDERSHOOTS ref)
+    print(f"\n{'='*80}")
+    print("Signed error per step (ref - test): positive = test UNDERSHOOTS ref")
+    print(f"{'='*80}")
+
+    for step_idx, (label, _config) in enumerate(TEST_CONFIGS):
+        step_start_t = t_start + step_idx * step_duration
+        step_end_t = step_start_t + step_duration
+        mask = (t_common >= step_start_t) & (t_common < step_end_t)
+        if not np.any(mask):
+            continue
+
+        print(f"\nStep {step_idx+1} [{label}] ({step_start_t:.1f}s-{step_end_t:.1f}s):")
+        print(
+            f"  {'Joint':<25} {'Mean Err':>10} {'End Err':>10} "
+            f"{'|Mean|':>10} {'Direction':>12}"
+        )
+        print(f"  {'-'*70}")
+
+        for jname in JOINT_NAMES:
+            pos1 = np.interp(t_common[mask], t1, data1[f"{jname}_pos"])
+            pos2 = np.interp(t_common[mask], t2, data2[f"{jname}_pos"])
+            signed_err = pos1 - pos2  # positive means test undershoots
+
+            mean_err = np.mean(signed_err)
+            end_err = signed_err[-1]
+            abs_mean = np.mean(np.abs(signed_err))
+
+            # Skip joints with negligible error
+            if abs_mean < 0.001:
+                continue
+
+            direction = "UNDERSHOOT" if mean_err > 0 else "OVERSHOOT"
+            print(
+                f"  {jname:<25} {mean_err:>+10.4f} {end_err:>+10.4f} "
+                f"{abs_mean:>10.4f} {direction:>12}"
+            )
+    print()
 
 
 def _load_csv(filepath: str) -> dict:
